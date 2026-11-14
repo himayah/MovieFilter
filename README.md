@@ -104,4 +104,8 @@ class MyEffectPlugin(VideoPlugin):
 
 ## ライセンス
 
-未設定。
+本プロジェクトは [Apache License 2.0](LICENSE) の下で公開します。
+
+- 本体・設計書・ひな形(`templates/plugin_template.py`)は Apache License 2.0 が適用されます。
+- ひな形をコピーして作ったプラグインのライセンスは、作者が自由に決められます。
+- FFmpeg は本プロジェクトに同梱しません(別途インストールするもので、FFmpeg 自体のライセンスに従います)。
