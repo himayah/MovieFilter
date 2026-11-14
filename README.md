@@ -62,8 +62,12 @@ moviefilter.cmd list           # Windows のコマンドプロンプト
 
 ```
 $ moviefilter list                                  # 使えるプラグインの一覧
-名前   種別   バージョン  説明
-sepia  video  1.0.0       動画全体を一様にセピアカラーにします
+名前             種別   バージョン  説明
+analog-tv        video  1.0.0       アナログ放送時代のテレビ風の画質にし、時々ノイズを入れます
+glitch           video  1.0.0       デジタルグリッチ(RGBずれ・ブロック崩れ・横ずれ)を時々入れます
+lens-distortion  video  1.0.0       レンズ歪み(樽型/糸巻き型)と色収差を加えます
+old-film         video  1.0.0       古い映画フィルム風(色あせ・ちらつき・縦傷・ゴミ・粒子)にします
+sepia            video  1.0.0       動画全体を一様にセピアカラーにします
 
 $ moviefilter info sepia                            # プラグインの詳細・パラメータ
 
@@ -87,6 +91,10 @@ $ moviefilter apply in.mp4 -p sepia:intensity=0.5 -o out.mp4 --quality high
 | 名前 | 内容 |
 |---|---|
 | `sepia` | 動画全体を一様にセピアカラーにする(`intensity` で効果の強さを調整) |
+| `analog-tv` | アナログ放送時代のテレビ風の画質(ぼかし・色にじみ・走査線・ざらつき)にし、時々ノイズ(砂嵐の帯・横ずれ・ちらつき)を入れる。`softness` `scanlines` `grain` `noise_rate` `noise_strength` で調整。例: `-p analog-tv:noise_rate=0.1` |
+| `glitch` | デジタルグリッチ(RGBずれ・ブロックの位置ずれ・横ずれ)を時々入れる。`rate` `strength` `rgb_shift` `blocks` `slices` |
+| `lens-distortion` | 樽型/糸巻き型のレンズ歪みと色収差。`curvature`(-0.4〜1.0) `aberration` |
+| `old-film` | 古い映画フィルム風。`tint` `flicker` `jitter` `scratches` `dust` `grain` |
 
 ## 自分でプラグインを作る
 

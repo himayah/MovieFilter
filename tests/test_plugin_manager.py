@@ -33,14 +33,14 @@ def mgr(*dirs):
 
 def test_builtin_sepia_found():
     infos, issues = mgr().discover_all()
-    assert [i.name for i in infos] == ["sepia"] and not issues
+    assert [i.name for i in infos] == ["analog-tv", "glitch", "lens-distortion", "old-film", "sepia"] and not issues
 
 
 def test_discover_and_resolve(plugin_dir):
     write_plugin(plugin_dir, "film_grain", GOOD.format(cls="G", name="film-grain"))
     m = mgr(plugin_dir)
     infos, issues = m.discover_all()
-    assert {i.name for i in infos} == {"sepia", "film-grain"} and not issues
+    assert {i.name for i in infos} == {"analog-tv", "glitch", "lens-distortion", "old-film", "sepia", "film-grain"} and not issues
     assert m.resolve("film-grain").version == "1.2.3"
     assert m.resolve("film-grain").cls.__name__ == "G"
 
