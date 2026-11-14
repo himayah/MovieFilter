@@ -2,9 +2,9 @@
 
 動画ファイルと「フィルタプラグイン」を指定するだけで、エフェクトをかけた動画を自動で保存する、簡易な動画編集ツールです。
 
-> **現在の状態: 設計完了・実装前**
-> 基本設計書・詳細設計書・取扱説明書・プラグイン作成ガイドまで完成しており、コードはまだありません。
-> 本書の「使い方」は、**設計どおりに実装できた場合の想定**です。
+> **現在の状態: 第1段階を実装済み(v0.1.0)**
+> 設計書・取扱説明書・プラグイン作成ガイドに沿って実装し、結合テストを含む 172 件のテストが通っています。
+> Linux(WSL を含む)で動作確認済みです。**Windows は未検証**です。
 
 ## 目的
 
@@ -15,12 +15,55 @@
 
 タイムライン編集、カット・結合、テロップ編集などの本格的な編集機能は対象外です。
 
-## 想定される使い方
+## インストール
+
+Python 3.11 以上と、FFmpeg(`ffmpeg` / `ffprobe`)が必要です。FFmpeg は別途インストールします(Linux の例: `sudo apt install ffmpeg`。Windows は FFmpeg を展開して、`ffmpeg.exe` のあるフォルダを `PATH` に追加)。
+
+### 推奨: `pip install .` でインストールする
+
+このリポジトリのルートで実行します(NumPy も自動で入ります)。
+
+```
+# Linux / macOS / WSL
+pip install .
+moviefilter list               # sepia が表示されれば成功
+
+# Windows(PowerShell / コマンドプロンプト)
+py -3.11 -m pip install .
+moviefilter list
+```
+
+- インストールすると `moviefilter` コマンドが作られ、**どのフォルダからでも** `moviefilter apply ...` と打てます。
+- 仮想環境(venv)を使う場合は、有効にした状態で実行してください。コマンドはその環境の中に作られます。
+- Windows で「`moviefilter` が認識されません」と出る場合は、pip の警告にある `Scripts` フォルダが `PATH` に入っていません。次のように呼べば `PATH` に関係なく動きます。
+  ```
+  py -3.11 -m moviefilter list
+  ```
+- ソースを編集しながら使うなら `pip install -e .` を使います。
+
+### 代替: インストールせずに起動用スクリプトで使う
+
+```
+pip install numpy              # 使う Python に NumPy が入っていなければ
+./moviefilter list             # Linux / macOS / WSL(リポジトリのルートで)
+.\moviefilter.cmd list         # Windows の PowerShell(`.\` と `.cmd` が必要)
+moviefilter.cmd list           # Windows のコマンドプロンプト
+```
+
+- 起動用スクリプトは `PYTHONPATH` に `src` を足して `python -m moviefilter` を実行するだけです。どのフォルダからでも、スクリプトのパスを指定すれば動きます。
+- **PowerShell は現在のフォルダのコマンドを名前だけでは実行しません。`.\` を付け、拡張子 `.cmd` まで書いてください。**(拡張子のない `moviefilter` は Linux 用です)
+- 使う Python を指定したいときは、環境変数 `MOVIEFILTER_PYTHON` に実行ファイルのパスを指定します。
+- Python が 3.11 未満、または NumPy がない場合は、その旨のメッセージを表示して終了します。
+- 以降の例の `moviefilter` は、この方法では `./moviefilter`(PowerShell は `.\moviefilter.cmd`)に読み替えてください。
+
+## 使い方
+
+(インストールせずに起動用スクリプトで使う場合は、`moviefilter` を `./moviefilter`(PowerShell は `.\moviefilter.cmd`)に読み替えてください)
 
 ```
 $ moviefilter list                                  # 使えるプラグインの一覧
-名前    種別    バージョン  説明
-sepia   video   1.0.0       動画全体を一様にセピアカラーにします
+名前   種別   バージョン  説明
+sepia  video  1.0.0       動画全体を一様にセピアカラーにします
 
 $ moviefilter info sepia                            # プラグインの詳細・パラメータ
 
@@ -78,7 +121,7 @@ class MyEffectPlugin(VideoPlugin):
 
 詳しくは [取扱説明書](docs/user_manual.md) の「制約事項」「エラー出力の説明」を参照してください。
 
-## 技術構成(予定)
+## 技術構成
 
 - Python 3.11+、NumPy(必須の依存はこれのみ)
 - 動画の入出力は FFmpeg / FFprobe を外部コマンドとして利用(同梱しない)
@@ -95,12 +138,20 @@ class MyEffectPlugin(VideoPlugin):
 | [設計レビュー記録](docs/review_log.md) | 第三者視点のレビューで見つかった指摘と対応 |
 | [プラグインのひな形](templates/plugin_template.py) | エフェクト部分だけを書けば完成するひな形 |
 
+## 開発
+
+```
+pip install -e ".[dev]"
+pytest                          # FFmpeg がない環境では結合テストは自動でスキップされる
+```
+
+- 性能(1080p・30fps・10秒の動画、24 コア環境): プラグインなし 約 120fps、セピア 約 35fps。Python 側のメモリ使用量は約 100MB で一定。
+- 実装で見つかった設計の誤りと訂正は [設計レビュー記録](docs/review_log.md) の「第3回」を参照。
+
 ## 今後の予定
 
-1. 実装前の最小検証(FFmpeg の挙動の確認。詳細設計書 §13)
-2. 実装(コア → セピア → CLI → テスト支援モジュール)
-3. 性能計測と調整
-4. 将来拡張: 音声エフェクト、前後フレームを使うエフェクト、他の出力形式、GUI
+1. Windows での動作確認
+2. 将来拡張: 音声エフェクト、前後フレームを使うエフェクト、他の出力形式、GUI
 
 ## ライセンス
 

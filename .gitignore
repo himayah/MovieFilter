@@ -6,3 +6,4 @@ build/
 dist/
 .pytest_cache/
 *.tmp.mp4
+*_filtered.mp4

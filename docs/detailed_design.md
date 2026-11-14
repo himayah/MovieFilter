@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |---|---|
 | 文書名 | MovieFilter 詳細設計書 |
-| 版 | 0.5(プラグイン作者向け支援の追加) |
+| 版 | 0.7(起動用スクリプトの追加) |
 | 作成日 | 2026-11-14 |
 | 前提文書 | `docs/basic_design.md`(v0.5) |
 | 関連文書 | `docs/review_log.md`(レビュー記録・指摘 R-xx の出典) |
@@ -17,6 +17,8 @@
 | 0.2 | レビュー指摘の反映(フレームレートの有理数化、バッファ所有権契約、再利用バッファによるメモリ削減、プラグインの遅延ロード、同梱プラグインの配置変更、A/V開始時刻補正、Ctrl+C の扱い、テスト期待値の具体化、実装前スパイク項目の追加、図の mermaid 化) |
 | 0.3 | `FrameContext` に `seed`(決定的な乱数シード)を追加。CLI に `--seed`、`ProcessRequest` に `seed` を追加。`FrameContext.info` は入れ子のまま維持する方針を確定 |
 | 0.4 | 実装前最終レビューの反映(`review_log.md` 第2回 R-18〜R-40)。主な変更: エンコード引数の修正(メタデータ/チャプター、色空間 BT.709、`-framerate`)、カバー画像の除外、エラーコード追加(`E_USAGE`, `E_OUTPUT_DIR_INVALID`)と終了コード対応表、モジュール依存の矛盾解消、`setup`/`teardown` の失敗時の扱い、パッケージング仕様、設定の優先順位、スパイク追加 |
+| 0.7 | インストールなしで起動できる起動用スクリプト(`moviefilter` / `moviefilter.cmd`)の追加(§2.2)。`__main__.py` に Python バージョンと NumPy の事前チェックを追加 |
+| 0.6 | 実装・結合テストで判明した点の反映(`review_log.md` 第3回 I-1〜I-6)。`-shortest` の削除、音声オフセット補正の式の訂正、`-map` をストリーム番号指定へ、`Progress.done` の追加、検証順序の訂正 |
 | 0.5 | プラグイン作者向けドキュメント(`plugin_author_guide.md`)・ひな形(`templates/plugin_template.py`)の追加に伴い、テスト支援モジュール `moviefilter.testing`(§5.8)、プラグイン検出規則(モジュール内定義のクラスのみ・1ファイル1プラグイン・パッケージ形式のロード方法、§5.1.2)、予約名、`str(例外)` の形式、プラグイン用ロガー名を追加 |
 
 ---
@@ -88,7 +90,7 @@ classDiagram
 ```
 src/moviefilter/
 ├─ __init__.py          バージョン
-├─ __main__.py          python -m moviefilter
+├─ __main__.py          python -m moviefilter(Python 3.11 未満・NumPy 未導入を検出して分かりやすく終了)
 ├─ cli.py               UI層
 ├─ service.py           処理サービス層
 ├─ models.py            データクラス
@@ -135,6 +137,19 @@ flowchart TB
 | コマンド | `[project.scripts] moviefilter = "moviefilter.cli:main"`(`python -m moviefilter` も同じ `main` を呼ぶ) |
 | 同梱プラグイン | `moviefilter/builtin_plugins/` を**パッケージデータとして含める**(`package-data` 指定を忘れると、インストール後に `sepia` が見つからなくなる)。インストール後に `moviefilter list` で `sepia` が出ることを結合テストに含める |
 | 版 | `moviefilter.__version__` を `pyproject.toml` と一致させる(`--version` で表示) |
+
+### 2.2 起動用スクリプト(インストールなしでの実行)
+
+リポジトリ直下に2つの起動用スクリプトを置く。どちらも `PYTHONPATH` にスクリプトの隣の `src` を足し、`python -m moviefilter <引数>` を実行して**終了コードをそのまま返す**だけの薄いラッパーで、ロジックは持たない。
+
+| ファイル | 対象 | 仕様 |
+|---|---|---|
+| `moviefilter` | Linux / macOS / WSL | POSIX シェルスクリプト(`#!/bin/sh`、LF、実行権限あり)。`$0` がシンボリックリンクなら辿って本来の置き場所を求める。Python は環境変数 `MOVIEFILTER_PYTHON`、なければ `python3`、`python` の順 |
+| `moviefilter.cmd` | Windows | バッチファイル(CRLF、**ASCII のみ**:コードページに依存しないため)。PowerShell では現在のフォルダのコマンドを名前だけでは実行できないため、`.\moviefilter.cmd` と書く(拡張子のない `moviefilter` は Linux 用のため、`.cmd` まで書く)。`%~dp0src` を `PYTHONPATH` に足す。Python は `MOVIEFILTER_PYTHON`、なければ `py -3`、`python` の順 |
+
+- 前提の確認は `__main__.py` が行う(ランチャー側では行わない。起動が二重に遅くならないように、また `python -m` でも同じ案内を出すため)。Python が 3.11 未満、または NumPy がなければ、日本語のメッセージを出して終了コード 1 で終了する。
+- `.gitattributes` で `moviefilter` は LF、`*.cmd` は CRLF に固定する(Windows 上の改行変換でシェルスクリプトの `#!` 行が壊れるのを防ぐため)。
+- `pip install` で作られるコマンド(`[project.scripts]`)とは独立した別の入口であり、どちらも同じ `moviefilter.cli:main` を呼ぶ。
 
 ## 3. 公開API(`plugin_api.py`)
 
@@ -270,6 +285,8 @@ classDiagram
         video: VideoInfo
         source_video_codec: str
         source_fps_mode: cfr|vfr
+        video_stream_index: int
+        audio_stream_index: int|None
         video_start_sec: float
         audio: AudioInfo|None
     }
@@ -380,7 +397,7 @@ class Decoder:
     def frames(self) -> Iterator[np.ndarray]
 ```
 ```
-ffmpeg -v error -nostdin -i <input> -map 0:v:0 -an -sn -dn
+ffmpeg -v error -nostdin -i <input> -map 0:<video_stream_index> -an -sn -dn
        [-vf "fps=<fps_num>/<fps_den>"]        # VFR のときのみ
        -f rawvideo -pix_fmt rgb24 pipe:1
 ```
@@ -401,16 +418,16 @@ class Encoder:
 ffmpeg -v error -nostdin -y
   -f rawvideo -pix_fmt rgb24 -s <W>x<H> -framerate <fps_num>/<fps_den> -i pipe:0
   [-itsoffset <audio_start - video_start>]  -i <input>      # 常に追加(メタデータ取得用)。itsoffset は音声ありのときのみ
-  -map 0:v:0 [-map 1:a:0]                                    # 音声なしのときは -an
+  -map 0:v:0 [-map 1:<audio_stream_index>]                   # 音声なしのときは -an(入力 1 のストリーム番号は ffprobe の index)
   -vf "[pad=ceil(iw/2)*2:ceil(ih/2)*2,]scale=out_color_matrix=bt709:out_range=tv"   # pad は幅または高さが奇数のときのみ
   -c:v libx264 -crf <q> -preset medium -pix_fmt yuv420p
   -colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range tv
   -c:a copy                                                  # reencode 時は -c:a aac -b:a 192k
-  -movflags +faststart -map_metadata:g 1 -map_chapters -1 -shortest
+  -movflags +faststart -map_metadata:g 1 -map_chapters -1          # -shortest は付けない(S-2: 付けると映像が途中で切れる)
   <tmp_output>
 ```
-- `audio_mode == none` のときは `-map 1:a:0`・`-itsoffset` を付けず `-an`(`-i <input>` はメタデータ取得のため残す。これを省くと `-map_metadata:g 1` が存在しない入力を参照してエラーになる)。
-- **A/V 開始時刻補正(R-07)**: `audio.start_sec - video_start_sec` の絶対値が 1 フレーム時間を超える場合のみ `-itsoffset` を音声入力に付与する。それ以内は付与しない。
+- `audio_mode == none` のときは `-map 1:<index>`・`-itsoffset` を付けず `-an`(`-i <input>` はメタデータ取得のため残す。これを省くと `-map_metadata:g 1` が存在しない入力を参照してエラーになる)。
+- **A/V 開始時刻補正(R-07、実装で訂正)**: 入力ファイルの音声は元の開始時刻を保ったまま読み込まれる一方、パイプ経由の映像は常に 0 から始まる。映像と音声の相対位置を保つため、**映像の `start_time` の絶対値が 1 フレーム時間を超える場合のみ、音声入力に `-itsoffset -<video_start_sec>` を付ける**(音声が遅れて始まる入力は、ファイル内のタイムスタンプがそのまま保たれるため補正不要。`audio.start_sec - video_start_sec` を加えると二重に効いてずれる)。
 - `-map_metadata:g 1` で元動画のグローバルメタデータ(タイトル等)を引き継ぐ。`-map_chapters -1` でチャプターは引き継がない(指定しないと FFmpeg が入力のチャプターを自動でコピーするため、「チャプターは出力されない」という制約と矛盾する)。
 - **色空間**: RGB から YUV への変換は BT.709・TV レンジで明示し、出力にも同じ色情報を付ける。指定しないと、変換行列(BT.601)とプレーヤーの解釈(HD は BT.709)が食い違い、色味がずれる。デコード側(YUV→RGB)は入力に付いた色情報に従う(FFmpeg の既定。スパイク S-8 で往復の色一致を確認する)。
 - `BrokenPipeError` は FFmpeg 異常終了とみなし `E_ENCODE_FAILED`(stderr末尾付き)へ変換。1フレームも書かれずに終了した場合は `E_NO_FRAMES`。
@@ -517,11 +534,13 @@ sequenceDiagram
 
 **seed**: `ProcessRequest.seed`(CLI の `--seed`、既定 `0`)を `VideoStageChain` へ渡す。範囲は `0 <= seed < 2**32`(範囲外は `E_PARAM_INVALID`)。
 
+**進捗通知**: `Progress(frames_done, total_frames, elapsed_sec, eta_sec, done=False)`。0.2 秒以上の間隔で通知し、全フレーム完了時に `done=True` で最後に1回通知する(非 TTY の表示でも最終行を必ず出すため)。
+
 **失敗時の後始末の順序**: 例外・中断が起きたら、①Decoder/Encoder の子プロセスを停止(`terminate` → 一定時間後に `kill`)→ ②全プラグインの `teardown`(各自 try/except で警告ログのみ)→ ③一時ファイル削除 → ④元の例外を再送出。`teardown` の失敗が元のエラーを隠さないこと。
 
 **中断の仕組み**: CLI ではサービスがメインスレッドで動くため、Ctrl+C は `KeyboardInterrupt` として直接送出され、上記の後始末後に CLI が終了コード130で終了する。`cancel`(`threading.Event`)は、別スレッドから中断を指示する GUI など将来のUI向け。プラグインの `process` が送出する `Exception` は `E_PLUGIN_RUNTIME` に包むが、`KeyboardInterrupt` は包まずそのまま伝える。
 
-**事前検証(失敗時は何も作らない)**: 入力存在・読取可 → プロファイル解決 → 出力パス決定(未指定: 入力と同じディレクトリの `<入力ステム>_filtered<プロファイル拡張子>`)→ 出力先ディレクトリの存在・書込可(不可なら `E_OUTPUT_DIR_INVALID`)→ 既存ファイル(`overwrite=False` なら `E_OUTPUT_EXISTS`)→ **入力=出力なら `E_OUTPUT_SAME_AS_INPUT`**(`Path.resolve()` 比較、同一ファイルの別名も検出するため `os.path.samefile` も併用)。
+**事前検証(失敗時は何も作らない)**: 入力存在・読取可 → プロファイル解決 → 出力パス決定(未指定: 入力と同じディレクトリの `<入力ステム>_filtered<プロファイル拡張子>`)→ 出力先ディレクトリの存在・書込可(不可なら `E_OUTPUT_DIR_INVALID`)→ **入力=出力なら `E_OUTPUT_SAME_AS_INPUT`**(`Path.resolve()` 比較、同一ファイルの別名・シンボリックリンクも検出するため `os.path.samefile` も併用。**既存ファイルの確認より先に行う**: 先に行わないと `--overwrite` なしで入力自身を指定したとき、より重大な「入力の破壊」でなく「既存ファイル」のエラーになる)→ 既存ファイル(`overwrite=False` なら `E_OUTPUT_EXISTS`)。品質(`--quality`)・`--seed` の範囲もこの段階で検証し、不正なら `E_PARAM_INVALID`。
 
 **一時ファイル**: `<出力ディレクトリ>/.<出力ステム>.<pid>.tmp<プロファイル拡張子>`(例: `.out.1234.tmp.mp4`)(同一ボリュームなので `os.replace` が原子的)。正常/例外/Ctrl+C では必ず削除される。プロセスが強制終了(`kill -9` 等)された場合は残る可能性があり、利用者向けドキュメントに記載する(自動掃除は対象外)(R-17)。
 
@@ -779,6 +798,7 @@ class SepiaPlugin(VideoPlugin):
 | パッケージング | インストール後(別ディレクトリから)に `moviefilter list` で `sepia` が表示される |
 | `plugin_manager`(検出規則) | 他モジュールから import したクラスは無視される、1ファイルに複数クラスで失敗、クラス0個で失敗、パッケージ形式の相対 import、ロード失敗理由の各種別 |
 | `testing` | `run_plugin` が本番と同じ検証を行う(入力の読み取り専用化、shape/dtype 検査、文字列パラメータの変換、範囲外で例外)、`job_seed` で結果が再現される、`make_test_frames` の各 pattern |
+| 起動用スクリプト | 任意のカレントディレクトリから実行できる、引数と終了コードがそのまま伝わる、シンボリックリンク経由でも動く、隣の `src` を使う(偽のパッケージで検証)、`moviefilter` は LF・実行権限あり、`moviefilter.cmd` は CRLF・ASCII のみ。手動確認: NumPy だけを入れた別の環境(moviefilter 未インストール)で実行できる、Python 3.10 と NumPy なしの環境で案内メッセージが出る |
 | ひな形 | `templates/plugin_template.py` が、そのままロードでき、`run_plugin` で入力と同一の出力(パススルー)になる |
 
 ### 11.2 結合テスト
@@ -792,7 +812,7 @@ FFmpeg が必要。`pytest` マーカー(`@pytest.mark.ffmpeg`)を付け、FFmpe
 | 音声コーデック非互換(opus) | 出力音声が AAC |
 | 奇数サイズ(321×241) | 偶数サイズに補正され正常終了 |
 | VFR 入力 | CFR で出力される |
-| 映像・音声の開始時刻がずれた入力 | 補正後の A/V ずれが 1 フレーム以内 |
+| 映像・音声の開始時刻がずれた入力(音声が遅れる/映像が遅れる両方) | 出力の A/V の相対位置が入力と 0.06 秒以内で一致する |
 | 回転メタデータ付き(90°) | 出力の縦横が回転後の寸法で、回転メタデータが残らない |
 | プラグイン連鎖 | 適用順が反映される |
 | セピア動画 | 出力フレーム平均で R ≥ G ≥ B |
@@ -848,8 +868,8 @@ flowchart TB
 | # | 検証項目 | 確認内容 |
 |---|---|---|
 | S-1 | `-nostdin` + `-i pipe:0` | rawvideo のパイプ入力が `-nostdin` と併用できるか |
-| S-2 | 音声別入力 + `-shortest` | 映像(パイプ)と音声(ファイル)の合成で長さが揃うか、先頭の音ずれが出ないか |
-| S-3 | `-itsoffset` | 開始時刻がずれた入力で補正が効くか |
+| S-2 | 音声別入力の合成 | 映像(パイプ)と音声(ファイル)の合成で長さが揃うか。**【結果】`-shortest` を付けると、ファイル入力(音声)が先に終端に達するため映像が途中で打ち切られる(3秒の動画が 1.4 秒になった)。`-shortest` は使わない**。付けない場合は 90 フレーム全部が出力され、長さの差は 1 フレーム以内だった |
+| S-3 | `-itsoffset` | 開始時刻がずれた入力で補正が効くか。**【結果】音声が遅れて始まる入力(音声 start_time=0.476)に `audio.start - video.start` を `-itsoffset` で足すと 0.952 と二重に効いた。補正が必要なのは映像の開始が遅れる入力だけで、値は `-video_start`。結合テスト `test_av_relative_offset_is_preserved` で両方向を検証** |
 | S-4 | 自動回転 | デコード出力サイズが `VideoInfo` の算出と一致するか |
 | S-5 | `readinto` + `frombuffer` | 再利用バッファで正しくフレームが読めるか、速度が `read` と比べ劣化しないか |
 | S-6 | 別プロセスグループ | Ctrl+C で子プロセスが残らず、一時ファイルが削除されるか(Linux / Windows) |

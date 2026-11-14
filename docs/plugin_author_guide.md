@@ -44,7 +44,7 @@ flowchart LR
 2. ファイル内の「★ 書き換える」箇所(クラス名、`name`、`description`、`params`)を編集します。
 3. 「★ エフェクト処理」の箇所に、`out`(出力バッファ)を加工するコードを書きます。
 4. プラグイン置き場(§4.1)にファイルを置きます。
-5. 確認します。
+5. 確認します(`pip install .` でインストールしていない場合は、`moviefilter` を `./moviefilter`(Windows の PowerShell は `.\moviefilter.cmd`)に読み替える)。
    ```
    moviefilter list                                   # 一覧に表示される
    moviefilter info film_grain                        # パラメータが正しく表示される

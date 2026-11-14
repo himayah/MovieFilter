@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "moviefilter"
+version = "0.1.0"
+description = "動画にフィルタプラグインを適用して保存する簡易動画編集ツール"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+dependencies = ["numpy"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+moviefilter = "moviefilter.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+moviefilter = ["builtin_plugins/*.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["ffmpeg: FFmpeg が必要な結合テスト(FFmpeg がなければスキップ)"]

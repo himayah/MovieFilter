@@ -1,0 +1,31 @@
+#!/bin/sh
+# MovieFilter 起動用スクリプト(Linux / macOS / WSL)。インストール(pip install)なしで実行できる。
+#   ./moviefilter apply in.mp4 -p sepia
+# 使う Python を変えたいときは、環境変数 MOVIEFILTER_PYTHON に実行ファイルのパスを指定する。
+# 必要なもの: Python 3.11 以上、NumPy、FFmpeg
+
+# シンボリックリンク経由で呼ばれても、このスクリプト本来の置き場所を求める
+SELF="$0"
+while [ -L "$SELF" ]; do
+    LINK="$(readlink "$SELF")"
+    case "$LINK" in
+        /*) SELF="$LINK" ;;
+        *) SELF="$(dirname "$SELF")/$LINK" ;;
+    esac
+done
+DIR="$(cd "$(dirname "$SELF")" && pwd)"
+
+if [ -n "$MOVIEFILTER_PYTHON" ]; then
+    PY="$MOVIEFILTER_PYTHON"
+elif command -v python3 >/dev/null 2>&1; then
+    PY=python3
+elif command -v python >/dev/null 2>&1; then
+    PY=python
+else
+    echo "エラー: Python が見つかりません。Python 3.11 以上をインストールするか、MOVIEFILTER_PYTHON を指定してください。" >&2
+    exit 1
+fi
+
+PYTHONPATH="$DIR/src${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH
+exec "$PY" -m moviefilter "$@"

@@ -3,7 +3,7 @@
 | 項目 | 内容 |
 |---|---|
 | 対象バージョン | 第1段階(`docs/basic_design.md` v0.5 / `docs/detailed_design.md` v0.5 に基づく) |
-| 位置づけ | **設計書どおりに実装された場合の利用イメージ**。現時点では実装前のため、メッセージの文言・表示の細部は実装時に変わることがある(エラーコード、終了コード、オプション名は設計で確定) |
+| 位置づけ | 第1段階の実装(v0.1.0)の取扱説明書。表示例は実際の出力に合わせてある。Linux(WSL を含む)で動作確認済み。Windows は未検証 |
 
 ---
 
@@ -40,11 +40,39 @@ flowchart LR
 確認: `ffmpeg -version` と `ffprobe -version` が実行できればよい。`PATH` に追加できない場合は、設定ファイルでパスを指定できます(§8)。
 
 ### 2.2 MovieFilter の導入
+
+**推奨: `pip install .` でインストールする**
+
+プロジェクトのルートで実行します(NumPy も自動で入ります)。
 ```
-pip install .          # プロジェクトのルートで実行
+# Linux / macOS / WSL
+pip install .
 moviefilter list       # 動作確認(プラグイン一覧が出れば成功)
+
+# Windows(PowerShell / コマンドプロンプト)
+py -3.11 -m pip install .
+moviefilter list
 ```
-`moviefilter` コマンドが使えない環境では `python -m moviefilter list` でも同じ操作ができます。
+- インストールすると `moviefilter` コマンドが作られ、**どのフォルダからでも** `moviefilter apply ...` と打てます(Linux は `bin/moviefilter`、Windows は Python の `Scripts\moviefilter.exe`)。
+- Python の仮想環境(venv)を使う場合は、有効にした状態で実行してください。コマンドはその環境の中に作られます。
+- Windows で「`moviefilter` が認識されません」と出る場合は、`Scripts` フォルダが `PATH` に入っていません(インストール時に pip が警告を出します)。`py -3.11 -m moviefilter list` のように `-m moviefilter` で呼べば、`PATH` に関係なく動きます。
+- ソースを編集しながら使う場合は `pip install -e .` を使います。
+
+**代替: インストールせずに、起動用スクリプトで使う**
+
+プロジェクトのルートにある起動用スクリプトを直接実行します。
+```
+pip install numpy            # 使う Python に NumPy が入っていなければ
+./moviefilter list           # Linux / macOS / WSL(プロジェクトのルートで)
+.\moviefilter.cmd list       # Windows の PowerShell
+moviefilter.cmd list         # Windows のコマンドプロンプト
+```
+- **PowerShell は、現在のフォルダのコマンドを名前だけでは実行しません。`.\` を付け、拡張子 `.cmd` まで書いてください**(拡張子のない `moviefilter` は Linux 用のファイルです)。
+- どのフォルダからでも、スクリプトのパスを指定すれば実行できます(例: `/path/to/33_MovieFilter/moviefilter apply in.mp4 -p sepia`)。`PATH` の通ったフォルダにシンボリックリンクを作れば、`moviefilter` とだけ打てるようになります(Linux / WSL)。
+- 使う Python を指定したいときは、環境変数 `MOVIEFILTER_PYTHON` に実行ファイルのパスを指定します(例: `MOVIEFILTER_PYTHON=~/.venvs/mf/bin/python ./moviefilter list`。PowerShell は `$env:MOVIEFILTER_PYTHON = "C:\...\python.exe"`)。
+- Python が 3.11 未満、または NumPy がない場合は、その旨のメッセージ(`エラー: Python 3.11 以上が必要です ...`)を表示して終了します(終了コード 1)。
+
+以降の説明の `moviefilter` は、起動用スクリプトで使う場合は `./moviefilter`(PowerShell は `.\moviefilter.cmd`)に読み替えてください。いずれの方法でも `python -m moviefilter list`(インストールしていない場合は `PYTHONPATH=src` が必要)で同じ操作ができます。
 
 ## 3. クイックスタート
 
@@ -84,8 +112,8 @@ $ moviefilter apply holiday.mp4 -p sepia:intensity=0.5 -o /home/user/out/holiday
 
 ```
 $ moviefilter list
-名前    種別    バージョン  説明
-sepia   video   1.0.0       動画全体を一様にセピアカラーにします
+名前   種別   バージョン  説明
+sepia  video  1.0.0       動画全体を一様にセピアカラーにします
 ```
 
 ```
@@ -94,13 +122,13 @@ sepia (video) v1.0.0
   動画全体を一様にセピアカラーにします
 パラメータ:
   intensity  float  既定値 1.0  範囲 0.0〜1.0
-             効果の強さ (0.0=元画像, 1.0=完全なセピア)
+      効果の強さ (0.0=元画像, 1.0=完全なセピア)
 ```
 
 ```
 $ moviefilter profiles
-名前        拡張子  説明
-mp4-h264    .mp4    MP4 コンテナ / H.264 映像
+名前      拡張子  説明
+mp4-h264  .mp4    MP4 コンテナ / H.264 映像
 ```
 
 ### 4.3 `apply` のオプション
@@ -211,7 +239,7 @@ flowchart TD
 | 上記以外(Opus、Vorbis、FLAC など) | MP4 に格納できるよう AAC(192kbps)へ変換 |
 | 音声なし、または `--no-audio` | 音声なしで出力 |
 
-映像と音声の開始時刻がずれている動画は、1フレーム以上ずれている場合に自動で補正します。
+映像の開始時刻が 0 でない動画(映像が遅れて始まる動画)は、映像と音声の相対位置が保たれるよう、自動で補正します。音声が遅れて始まる動画は、そのまま保たれます。
 
 ## 7. 制約事項(必ずお読みください)
 
@@ -368,7 +396,7 @@ moviefilter apply in.mp4 -p brighten:amount=50
 | `E_ENCODE_FAILED` | `動画の書き出しに失敗しました` / `詳細: (FFmpeg の出力末尾)` | **ディスク容量不足**、出力先の権限なし、FFmpeg の異常終了 | 空き容量・書き込み権限を確認。一時ファイルは自動削除される |
 | `E_NO_FRAMES` | `処理できるフレームがありませんでした` | 映像が0フレームの動画 | 別の動画で確認 |
 | `E_PLUGIN_RUNTIME` | `プラグイン brighten がフレーム 342 で失敗しました` / `詳細: (原因の例外)` | プラグインの実行時エラー | プラグインの不具合。作者に連絡(自作なら `-v` で原因を確認) |
-| `E_PLUGIN_BAD_OUTPUT` | `プラグイン brighten の出力が不正です (フレーム 0): 形状 (540, 960, 3) が期待値 (1080, 1920, 3) と異なります` | プラグインが違うサイズ・型の画像を返した | プラグインの修正が必要(§9.3) |
+| `E_PLUGIN_BAD_OUTPUT` | `プラグイン brighten の出力が不正です (フレーム 0): 形状 (540, 960, 3)・型 uint8 が期待値 (1080, 1920, 3)・uint8 と異なります` | プラグインが違うサイズ・型の画像を返した | プラグインの修正が必要(§9.3) |
 
 #### 中断
 
@@ -384,13 +412,15 @@ moviefilter apply in.mp4 -p brighten:amount=50
 | `名前が重複するプラグインを無視しました: sepia (~/my_plugins/sepia.py)` | 同梱など先に見つかったものが使われる |
 | `プラグインの読み込みに失敗しました: bad_plugin.py (原因)` | `list` で表示される。他のプラグインの利用には影響しない |
 | `設定ファイルに不明な項目があります: defaults.foo` | 無視される |
-| `映像・音声の開始時刻のずれを補正しました (0.083 秒)` | `-v` 時などに表示 |
+| `映像・音声の開始時刻のずれを補正しました (-0.500 秒)` | `-v` 指定時のみ表示(音声側の補正値) |
 
 ## 11. トラブルシューティング
 
 | 症状 | 確認すること |
 |---|---|
-| `moviefilter` コマンドが見つからない | インストールした Python 環境が有効か。`python -m moviefilter list` で試す |
+| `moviefilter` コマンドが見つからない(PowerShell では「用語 'moviefilter' は、コマンドレット … として認識されません」) | `pip install .` を実行していない、または Python の `Scripts` フォルダが `PATH` に入っていない・venv が有効でない。`py -3.11 -m moviefilter list` で試す。インストールせずに使うなら、PowerShell では `.\moviefilter.cmd`(`.\` と `.cmd` が必要) |
+| 起動用スクリプトで `Permission denied` | 実行権限がない。`chmod +x moviefilter` を実行する(`sh moviefilter ...` でも可) |
+| 起動用スクリプトで `Python 3.11 以上が必要です` / `NumPy がインストールされていません` | `MOVIEFILTER_PYTHON` で 3.11 以上の Python を指定する。`pip install numpy` を実行する |
 | 進捗が出ない | `-q` を付けていないか。リダイレクト時(画面でない出力)は10秒ごとに1行表示される |
 | 「プラグインが見つかりません」なのにファイルは置いてある | ファイル名とプラグイン名が一致しているか(`-` は `_` に置換して比較)。`MOVIEFILTER_PLUGIN_PATH` や `extra_dirs` が正しいか。`list` の末尾に読み込み失敗が出ていないか |
 | 特定の動画だけ読み込めない | `ffprobe <ファイル>` を直接実行して読めるか確認する。読めない場合は FFmpeg 側の対応の問題(新しいビルドへの更新、または別形式への変換) |
