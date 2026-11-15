@@ -7,7 +7,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Sequence
 
 from .config import QUALITIES, Config
 from .errors import CancelledError, InputError, OutputError, PluginError, UsageError
@@ -21,6 +21,21 @@ log = logging.getLogger("moviefilter.service")
 
 PROGRESS_INTERVAL_SEC = 0.2
 SEED_LIMIT = 2**32
+
+
+MAX_DEFAULT_STEM = 120  # 既定の出力名がこの長さを超えるときは、フィルタ名を並べず "_filtered" にする
+
+
+def default_output_path(input_path: Path, plugin_names: Sequence[str], ext: str) -> Path:
+    """既定の出力パス: 入力と同じフォルダの `<入力名>_<フィルタ名>[_<フィルタ名>...]<拡張子>`(適用順)。
+
+    フィルタ名が無い、または名前が長くなりすぎるときは `<入力名>_filtered<拡張子>` にする。
+    CLI と GUI が同じ規則を使う(GUI は入力・適用リストが変わるたびにこれで既定名を更新する)。
+    """
+    suffix = "_".join(plugin_names)
+    if not suffix or len(input_path.stem) + len(suffix) + 1 > MAX_DEFAULT_STEM:
+        suffix = "filtered"
+    return input_path.with_name(f"{input_path.stem}_{suffix}{ext}")
 
 
 @dataclass(frozen=True)
@@ -47,7 +62,7 @@ class ProcessingService:
                 raise OutputError("E_OUTPUT_EXT_MISMATCH",
                                   f"出力の拡張子が形式と一致しません ({ext} が必要): {out}")
         else:
-            out = inp.with_name(f"{inp.stem}_filtered{ext}")
+            out = default_output_path(inp, [p.name for p in req.plugins], ext)
 
         parent = out.resolve().parent
         if not parent.is_dir() or not os.access(parent, os.W_OK):
@@ -59,7 +74,11 @@ class ProcessingService:
                               "上書きするには --overwrite を指定してください")
         return out
 
-    def _validate(self, req: ProcessRequest):
+    def validate_request(self, req: ProcessRequest):
+        """処理を始めずに、入力・出力・品質・シード・プラグイン指定の事前検証だけを行う(GUI も利用する)。
+
+        戻り値は (出力プロファイル, 確定した出力パス)。
+        """
         inp = req.input_path
         if not inp.is_file() or not os.access(inp, os.R_OK):
             raise InputError("E_INPUT_NOT_FOUND", f"入力ファイルが見つかりません: {inp}")
@@ -78,7 +97,7 @@ class ProcessingService:
     def run(self, req: ProcessRequest,
             on_progress: Callable[[Progress], None] | None = None,
             cancel: threading.Event | None = None) -> ProcessResult:
-        profile, output_path = self._validate(req)
+        profile, output_path = self.validate_request(req)
         tools = resolve_tools(self.config.ffmpeg, self.config.ffprobe)
         plugins = [self.plugins.instantiate(spec) for spec in req.plugins]
         media: MediaInfo = Prober(tools.ffprobe).probe(req.input_path)

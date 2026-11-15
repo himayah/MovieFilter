@@ -31,8 +31,15 @@ class ToolPaths:
     ffprobe: str
 
 
+_VERIFIED: dict[tuple[str, str], ToolPaths] = {}  # (ffmpeg, ffprobe の解決済みパス) → 動作確認済み
+
+
 def resolve_tools(ffmpeg: str = "ffmpeg", ffprobe: str = "ffprobe") -> ToolPaths:
-    """FFmpeg / FFprobe を解決し、動作確認とバージョンのログ出力を行う。"""
+    """FFmpeg / FFprobe を解決し、動作確認とバージョンのログ出力を行う。
+
+    `ffmpeg -version` の実行(子プロセスの起動)は、同じパスについて 1 プロセスにつき 1 回だけ行う。
+    パスの解決(`shutil.which`)は毎回行うので、実行ファイルが消えた場合は検出できる。
+    """
     found = {}
     for label, cmd in (("ffmpeg", ffmpeg), ("ffprobe", ffprobe)):
         path = shutil.which(cmd)
@@ -40,6 +47,9 @@ def resolve_tools(ffmpeg: str = "ffmpeg", ffprobe: str = "ffprobe") -> ToolPaths
             raise ToolError("E_FFMPEG_NOT_FOUND", f"{label} が見つかりません: {cmd}",
                             "FFmpeg をインストールして PATH を通すか、設定ファイルの [tools] でパスを指定してください")
         found[label] = path
+    key = (found["ffmpeg"], found["ffprobe"])
+    if key in _VERIFIED:
+        return _VERIFIED[key]
     try:
         r = subprocess.run([found["ffmpeg"], "-version"], capture_output=True, text=True, timeout=30)
         if r.returncode != 0:
@@ -47,7 +57,8 @@ def resolve_tools(ffmpeg: str = "ffmpeg", ffprobe: str = "ffprobe") -> ToolPaths
         log.info("FFmpeg: %s", r.stdout.splitlines()[0] if r.stdout else "?")
     except (OSError, subprocess.SubprocessError) as e:
         raise ToolError("E_FFMPEG_NOT_FOUND", f"ffmpeg を実行できません: {found['ffmpeg']}", str(e)) from e
-    return ToolPaths(found["ffmpeg"], found["ffprobe"])
+    tools = _VERIFIED[key] = ToolPaths(found["ffmpeg"], found["ffprobe"])
+    return tools
 
 
 def _popen_kwargs() -> dict:

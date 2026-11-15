@@ -3,10 +3,10 @@
 | 項目 | 内容 |
 |---|---|
 | 文書名 | MovieFilter 基本設計書 |
-| 版 | 0.6(起動用スクリプトの追加) |
+| 版 | 0.7(GUI の追加、出力名の規則変更) |
 | 作成日 | 2026-11-14 |
-| 関連文書 | `docs/detailed_design.md`(詳細設計書)、`docs/review_log.md`(レビュー記録) |
-| フェーズ | 基本設計・詳細設計まで完了。実装は未着手 |
+| 関連文書 | `docs/detailed_design.md`(詳細設計書)、`docs/gui_design.md`(GUI 設計書)、`docs/user_manual.md`(取扱説明書)、`docs/review_log.md`(レビュー記録) |
+| フェーズ | 第1段階(CLI)と GUI の第2段階 2-A を実装済み。GUI の 2-B(プレビューなど)と将来拡張(FR-10〜12)は未着手 |
 
 ### 改訂履歴
 
@@ -18,6 +18,7 @@
 | 0.4 | 実装前最終レビュー(`review_log.md` 第2回)の反映。FR-02 の表現修正、FR-14 追加、CLI 例の修正(同梱プラグインと整合) |
 | 0.5 | プラグイン作者向けの資料(ガイド・ひな形・テスト支援)を追加。FR-15 を追加 |
 | 0.6 | インストールなしで起動できる起動用スクリプトを追加。FR-16 を追加 |
+| 0.7 | GUI(FR-13 の 2-A)を実装。出力名の既定を `<入力名>_<フィルタ名>.mp4` に変更。GUI 用の起動方法(`moviefilter gui`、`moviefilter-gui`)を追加。ディレクトリ構成・コンポーネント一覧・今後の進め方を実装の現状に更新(詳細は `gui_design.md`、`review_log.md` 第4回) |
 
 ---
 
@@ -45,11 +46,11 @@
 | FR-09 | CLI で操作できる | 1 |
 | FR-14 | 出力の画質(low / medium / high)と出力プロファイルを選択できる | 1 |
 | FR-15 | 第三者がプラグインだけを作れるよう、作成ガイド・ひな形・テスト支援モジュールを提供する | 1 |
-| FR-16 | `pip install .` で `moviefilter` コマンドをインストールできる(推奨)。インストールなしでも、リポジトリ直下の起動用スクリプトで実行できる | 1 |
+| FR-16 | `pip install .` で `moviefilter` コマンド(と、コンソールなしで GUI を起動する `moviefilter-gui`)をインストールできる。インストールなしでも、リポジトリ直下の起動用スクリプト(`moviefilter` / `moviefilter.cmd` / `moviefilter-gui.cmd`)で実行できる | 1 |
 | FR-10 | 音声エフェクトプラグインに対応できる | 将来 |
 | FR-11 | 前後フレームを参照するエフェクトに対応できる | 将来 |
 | FR-12 | MP4(H.264)以外の出力形式に対応できる | 将来 |
-| FR-13 | GUI で操作できる | 将来 |
+| FR-13 | GUI で操作できる(詳細は `docs/gui_design.md`)。静止フレームのプレビューは GUI の第2段階(2-B)で追加する | 2-A(実装済み) / 2-B |
 
 ### 2.2 非機能要件
 
@@ -66,7 +67,7 @@
 
 ### 2.3 対象外(Out of Scope)
 - タイムライン編集、カット・結合、テロップ編集
-- リアルタイムプレビュー
+- リアルタイムプレビュー(再生しながらの確認)。GUI の**静止フレームのプレビュー**(指定した1フレームだけを加工して見比べる)は範囲内とする(`docs/gui_design.md` §6)
 - 複数ファイルの一括処理(将来はシェルのループ、または追加サブコマンドで対応可能)
 - プラグインの配布基盤、サンドボックス実行
 
@@ -86,7 +87,7 @@
 | 実装言語 | Python 3.11+ | プラグイン記述が容易 |
 | 動画入出力 | FFmpeg / FFprobe(外部コマンド) | 形式対応・音声処理・エンコードを任せる |
 | フレーム表現 | NumPy 配列(H×W×3, uint8, RGB) | 必須依存は `numpy` のみ |
-| UI | 第1段階は CLI のみ | 処理本体とUIを分離し、GUI を後付け可能に |
+| UI | CLI と GUI(標準の Tkinter。追加依存なし。`docs/gui_design.md`) | 処理本体とUIを分離し、GUI を後付けで追加した |
 | 出力形式 | 第1段階は MP4(H.264)のみ | プロファイル機構で拡張可能に |
 
 ### 設計方針
@@ -129,7 +130,7 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    UI["UI層<br/>CLI(将来: GUI)"]
+    UI["UI層<br/>CLI / GUI"]
     SVC["処理サービス層<br/>ジョブ実行・進捗・キャンセル・エラー集約"]
     PM["プラグイン管理<br/>検出・ロード・パラメータ検証"]
     PL["パイプライン<br/>ステージチェーン実行"]
@@ -155,6 +156,7 @@ flowchart TB
 | コンポーネント | 責務 |
 |---|---|
 | UI 層(CLI) | 引数解釈、プラグイン一覧表示、進捗表示、終了コード返却 |
+| UI 層(GUI) | 画面の組み立てと表示(View)、状態・検証・`ProcessRequest` の組み立て(ViewModel)、処理のワーカースレッドとイベントキュー。処理は CLI と同じ処理サービス層を呼ぶ |
 | 処理サービス層 | 入力検証、ジョブ実行、進捗・キャンセル・エラーの集約 |
 | プラグイン管理 | プラグイン置き場の走査、メタ情報取得、必要なものだけのロード、パラメータ検証 |
 | パイプライン | フレームを指定順にフィルタへ通す。将来は音声・前後フレーム参照にも対応 |
@@ -167,11 +169,14 @@ flowchart TB
 ```
 33_MovieFilter/
 ├─ moviefilter                  起動用スクリプト(Linux / macOS / WSL。インストール不要で実行できる)
-├─ moviefilter.cmd              起動用スクリプト(Windows)
-├─ docs/                        設計書・取扱説明書・プラグイン作成ガイド
+├─ moviefilter.cmd              起動用スクリプト(Windows。コマンドライン用)
+├─ moviefilter-gui.cmd          起動用スクリプト(Windows。コンソール窓なしで GUI を起動)
+├─ docs/                        設計書・取扱説明書・プラグイン作成ガイド・レビュー記録
+│   └─ images/                  図(GUI のワイヤーフレームなど)
 ├─ templates/                   プラグインのひな形(plugin_template.py)
 ├─ src/moviefilter/             本体パッケージ
-│   ├─ builtin_plugins/         同梱プラグイン(パッケージに含まれる)
+│   ├─ builtin_plugins/         同梱プラグイン(sepia / analog-tv / glitch / lens-distortion / old-film。パッケージに含まれる)
+│   ├─ gui/                     GUI(UI層。tkinter)
 │   └─ testing.py               プラグイン作者向けテスト支援
 ├─ tests/
 └─ pyproject.toml
@@ -225,10 +230,11 @@ moviefilter list                                  # 利用可能なプラグイ�
 moviefilter info <plugin>                         # プラグインの詳細・パラメータ表示
 moviefilter apply <input> -p <plugin>[:key=val,...] [-p ...] [-o <output>]
 moviefilter profiles                              # 出力プロファイル一覧
+moviefilter gui                                   # GUI を起動
 ```
-例: `moviefilter apply in.mp4 -p sepia:intensity=0.8 -o out.mp4`(複数指定は `-p` を繰り返す。第1段階の同梱プラグインは `sepia` のみ)
+例: `moviefilter apply in.mp4 -p sepia:intensity=0.8 -o out.mp4`(複数指定は `-p` を繰り返す。同梱プラグインは `sepia` / `analog-tv` / `glitch` / `lens-distortion` / `old-film`)
 
-オプション・文法・終了コードは詳細設計書を参照。GUI は第2段階以降で、同じサービス層を呼ぶ形で追加する。
+オプション・文法・終了コードは詳細設計書を参照。`moviefilter gui` で GUI を起動できる(同じサービス層を呼ぶ。設計は `docs/gui_design.md`)。
 
 ## 8. 主要リスクと対応
 
@@ -243,7 +249,9 @@ moviefilter profiles                              # 出力プロファイル一�
 
 ## 9. 今後の進め方
 
-1. 本書・詳細設計書のレビュー承認
-2. 実装前スパイク(FFmpeg 挙動の最小検証)
-3. 実装(コア → セピア → CLI → 追加プラグイン)
-4. テスト・性能計測・調整
+実施済み: 設計のレビュー、実装前スパイク(FFmpeg 挙動の検証。詳細設計書 §13)、第1段階の実装(コア → セピア → CLI → 追加プラグイン)、テストと性能計測、GUI の 2-A、CLI・GUI のレビューと修正(`review_log.md` 第3回・第4回)。
+
+今後:
+1. Windows での動作確認
+2. GUI の 2-B(静止フレームのプレビュー、プリセット、設定ダイアログ、ドラッグ&ドロップ。`gui_design.md` §3.1)
+3. 将来拡張(§4): 音声エフェクト(FR-10)、前後フレームを使うエフェクト(FR-11)、他の出力形式(FR-12)

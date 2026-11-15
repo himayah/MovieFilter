@@ -23,6 +23,7 @@ _EXIT_CODES: dict[str, int] = {
             "E_TEMPORAL_UNSUPPORTED",
             "E_CONFIG_INVALID",
             "E_FFMPEG_NOT_FOUND",
+            "E_GUI_UNAVAILABLE",
         ],
         2,
     ),

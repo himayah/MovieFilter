@@ -17,6 +17,9 @@ dev = ["pytest"]
 [project.scripts]
 moviefilter = "moviefilter.cli:main"
 
+[project.gui-scripts]
+moviefilter-gui = "moviefilter.gui:gui_main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

@@ -1,102 +1,114 @@
 # MovieFilter
 
-動画ファイルと「フィルタプラグイン」を指定するだけで、エフェクトをかけた動画を自動で保存する、簡易な動画編集ツールです。
+動画ファイルと「フィルタプラグイン」を選ぶだけで、エフェクトをかけた動画を保存する、簡易な動画編集ツールです。**画面(GUI)で操作できます。** コマンドラインからも同じ処理を実行できます。
 
-> **現在の状態: 第1段階を実装済み(v0.1.0)**
-> 設計書・取扱説明書・プラグイン作成ガイドに沿って実装し、結合テストを含む 172 件のテストが通っています。
+> **現在の状態: v0.1.0(CLI と、GUI の第2段階 2-A を実装済み)**
+> 設計書・取扱説明書・プラグイン作成ガイドに沿って実装し、結合テストを含む 270 件のテストが通っています。
 > Linux(WSL を含む)で動作確認済みです。**Windows は未検証**です。
 
-## 目的
+> **このプロジェクトは AI によって作成されています。** ソースコード、テスト、設計書、取扱説明書、プラグイン作成ガイドなど、**コードもドキュメントもすべて AI(Anthropic の Claude)が書いています。** 人間が内容をすべて検証しているわけではないため、利用は自己責任でお願いします。不具合や記述の誤りを見つけた場合は、お知らせください。
 
-- 「動画 + フィルタ → 動画」の一括変換に特化した、シンプルなツールを作る。
-- エフェクトを**プラグイン**として分離し、本体を改修せずに、ファイルを置くだけで追加できるようにする。
-- 第三者が、本体のソースを読まずにプラグインだけを作れるようにする。
-- 将来の拡張(音声エフェクト、前後フレームを使うエフェクト、他の出力形式、GUI)が、既存プラグインを壊さずに追加できる設計にする。
+![MovieFilter のメインウィンドウ(ワイヤーフレーム)](docs/images/gui_main_window.svg)
 
-タイムライン編集、カット・結合、テロップ編集などの本格的な編集機能は対象外です。
+## 特長
 
-## インストール
+- 「動画 + フィルタ → 動画」の一括変換に特化したシンプルなツール(カット・結合・テロップなどの編集機能はありません)。
+- エフェクトは**プラグイン**で、本体を改修せず、ファイルを置くだけで追加できる。GUI のパラメータ入力欄も、プラグインの定義から自動で作られる。
+- 複数のプラグインを重ねがけできる。映像だけを加工し、音声は元のまま引き継ぐ。
+- 失敗・中断したときは、中途半端な出力ファイルを残さない。
+- 第三者が、本体のソースを読まずにプラグインだけを作れる([プラグイン作成ガイド](docs/plugin_author_guide.md))。
 
-Python 3.11 以上と、FFmpeg(`ffmpeg` / `ffprobe`)が必要です。FFmpeg は別途インストールします(Linux の例: `sudo apt install ffmpeg`。Windows は FFmpeg を展開して、`ffmpeg.exe` のあるフォルダを `PATH` に追加)。
+## 必要なもの
 
-### 推奨: `pip install .` でインストールする
+| 項目 | 内容 |
+|---|---|
+| OS | Windows / Linux(WSL を含む) |
+| Python | 3.11 以上。**GUI には `tkinter` が必要**(Windows の python.org 版は標準で含まれる。Debian/Ubuntu は `sudo apt install python3-tk`) |
+| NumPy | `pip install numpy` |
+| FFmpeg | `ffmpeg` と `ffprobe`(別途インストール。本プロジェクトには同梱しません)。Linux: `sudo apt install ffmpeg` / Windows: ビルドを展開し、`ffmpeg.exe` のあるフォルダを `PATH` に追加 |
 
-このリポジトリのルートで実行します(NumPy も自動で入ります)。
+## ダウンロードと配置
 
-```
-# Linux / macOS / WSL
-pip install .
-moviefilter list               # sepia が表示されれば成功
-
-# Windows(PowerShell / コマンドプロンプト)
-py -3.11 -m pip install .
-moviefilter list
-```
-
-- インストールすると `moviefilter` コマンドが作られ、**どのフォルダからでも** `moviefilter apply ...` と打てます。
-- 仮想環境(venv)を使う場合は、有効にした状態で実行してください。コマンドはその環境の中に作られます。
-- Windows で「`moviefilter` が認識されません」と出る場合は、pip の警告にある `Scripts` フォルダが `PATH` に入っていません。次のように呼べば `PATH` に関係なく動きます。
-  ```
-  py -3.11 -m moviefilter list
-  ```
-- ソースを編集しながら使うなら `pip install -e .` を使います。
-
-### 代替: インストールせずに起動用スクリプトで使う
+1. このリポジトリを入手します(GitHub の「Code」→「Download ZIP」して展開、または `git clone`)。
+2. 中身を、好きなフォルダ(例: `C:\MovieFilter`、`~/MovieFilter`)に**そのままの構成で**置きます。
 
 ```
-pip install numpy              # 使う Python に NumPy が入っていなければ
-./moviefilter list             # Linux / macOS / WSL(リポジトリのルートで)
-.\moviefilter.cmd list         # Windows の PowerShell(`.\` と `.cmd` が必要)
-moviefilter.cmd list           # Windows のコマンドプロンプト
+C:\MovieFilter\                  ← プロジェクトのルート(src と起動用スクリプトが並んでいるフォルダ)
+├─ moviefilter-gui.cmd           Windows: GUI を起動(ダブルクリック。コンソール窓なし)
+├─ moviefilter.cmd               Windows: コマンドライン用の起動用スクリプト
+├─ moviefilter                   Linux / macOS / WSL 用の起動用スクリプト
+├─ pyproject.toml                pip でインストールするときに使う
+├─ README.md                     (pip でインストールするときにも必要)
+├─ src\moviefilter\              本体(これが無いと動かない)。同梱プラグインは builtin_plugins\ にある
+├─ docs\                         ドキュメント
+├─ templates\                    プラグインのひな形
+└─ tests\                        テスト(使うだけなら不要)
 ```
 
-- 起動用スクリプトは `PYTHONPATH` に `src` を足して `python -m moviefilter` を実行するだけです。どのフォルダからでも、スクリプトのパスを指定すれば動きます。
-- **PowerShell は現在のフォルダのコマンドを名前だけでは実行しません。`.\` を付け、拡張子 `.cmd` まで書いてください。**(拡張子のない `moviefilter` は Linux 用です)
-- 使う Python を指定したいときは、環境変数 `MOVIEFILTER_PYTHON` に実行ファイルのパスを指定します。
-- Python が 3.11 未満、または NumPy がない場合は、その旨のメッセージを表示して終了します。
-- 以降の例の `moviefilter` は、この方法では `./moviefilter`(PowerShell は `.\moviefilter.cmd`)に読み替えてください。
+| ファイル / フォルダ | 必要か |
+|---|---|
+| `src/moviefilter/`(フォルダごと) | **必須** |
+| `moviefilter-gui.cmd` / `moviefilter.cmd` / `moviefilter` | 起動用スクリプトで使うなら、使う OS のものが必要 |
+| `pyproject.toml`、`README.md` | `pip install .` でインストールするなら必要 |
+| `docs/`、`templates/`、`tests/` | 任意(使うだけなら削除してもよい) |
 
-## 使い方
+> **起動用スクリプトは、`src` フォルダと同じフォルダに置いたまま使ってください。** 別の場所(デスクトップなど)から起動したいときは、スクリプトを移動せず、ショートカットを作ります。ZIP を展開すると `MovieFilter-main\` のようなフォルダの中に入っていることがあります。`src` とスクリプトが並んでいるフォルダがルートです。
 
-(インストールせずに起動用スクリプトで使う場合は、`moviefilter` を `./moviefilter`(PowerShell は `.\moviefilter.cmd`)に読み替えてください)
+3. NumPy を入れます。Windows の `moviefilter-gui.cmd` は `pyw -3`(なければ `pythonw`)で起動するので、**その Python に**入れてください。
+   ```
+   py -3 -m pip install numpy          # Windows
+   python3 -m pip install numpy        # Linux / macOS / WSL
+   ```
 
-```
-$ moviefilter list                                  # 使えるプラグインの一覧
-名前             種別   バージョン  説明
-analog-tv        video  1.0.0       アナログ放送時代のテレビ風の画質にし、時々ノイズを入れます
-glitch           video  1.0.0       デジタルグリッチ(RGBずれ・ブロック崩れ・横ずれ)を時々入れます
-lens-distortion  video  1.0.0       レンズ歪み(樽型/糸巻き型)と色収差を加えます
-old-film         video  1.0.0       古い映画フィルム風(色あせ・ちらつき・縦傷・ゴミ・粒子)にします
-sepia            video  1.0.0       動画全体を一様にセピアカラーにします
+詳しい手順(Python の導入時の注意、`pip install` を使う方法、使う Python の指定など)は [取扱説明書](docs/user_manual.md) の §2 を参照してください。
 
-$ moviefilter info sepia                            # プラグインの詳細・パラメータ
+## 使い方(GUI)
 
-$ moviefilter apply holiday.mp4 -p sepia            # セピア調にして保存
-[##########] 100%  1800/1800 frames  ETA 00:00:00
-完了: holiday_filtered.mp4 (1800 フレーム, 00:01:12)
+### 起動
 
-$ moviefilter apply in.mp4 -p sepia:intensity=0.5 -o out.mp4 --quality high
-```
+| 環境 | 操作 |
+|---|---|
+| Windows | プロジェクトのルートの **`moviefilter-gui.cmd` をダブルクリック** |
+| Linux / macOS / WSL | ルートで `./moviefilter gui`(実行権限が無ければ `chmod +x moviefilter`)。WSL は WSLg など、画面を表示できる環境が必要 |
+| `pip install` した場合 | `moviefilter gui`(コンソール窓を出さない `moviefilter-gui` もあります) |
 
-- 出力は、既定では入力と同じフォルダの `<入力名>_filtered.mp4` に保存されます。
-- 映像だけを加工し、**音声は元のまま引き継ぎます**。
-- `-p` を繰り返すと、書いた順にプラグインを重ねがけできます。
-- 乱数を使うプラグインは、`--seed` で結果を固定できます。
-- 失敗・中断したときは、中途半端な出力ファイルを残しません。
+起動して、左の「利用可能なプラグイン」に `analog-tv`、`glitch`、`lens-distortion`、`old-film`、`sepia` が並べば準備完了です。開かない場合は、PowerShell で `.\moviefilter.cmd gui` と実行すると、エラーの表示を見られます([トラブルシューティング](docs/user_manual.md#11-トラブルシューティング))。
 
-動作環境(想定): Windows / Linux(WSL を含む)、Python 3.11 以上、FFmpeg(別途インストール)。
+### 操作の流れ
 
-## 同梱プラグイン(第1段階)
+1. **「参照...」**で動画を選ぶ(解像度・fps・長さが表示されます)。
+2. 左の一覧からプラグインを選び、**「適用リストに追加」**。**上から順**に適用されます(↑↓×で並べ替え・削除。同じプラグインを複数回追加できます)。
+3. 適用リストで選んだプラグインの**パラメータ**を、スライダーなどで調整する(範囲外の値は赤字で指摘され、直るまで実行できません)。
+4. 出力先・画質・音声・シードを必要に応じて変える。出力先の既定は、入力と同じフォルダの **`<入力名>_<フィルタ名>.mp4`**(複数のときは適用順に `_` でつなぐ。例: `holiday_sepia_glitch.mp4`)。
+5. **「実行」**。進捗と残り時間の目安が表示され、「中止」で安全に中断できます(出力ファイルは作られません)。完了のダイアログから、出力先のフォルダを開けます。
+
+「CLIコマンドを表示...」で、今の設定と同じ処理を実行するコマンドを確認・コピーできます。詳しい使い方は [取扱説明書](docs/user_manual.md) の §3〜§4 を参照してください。
+
+## 同梱プラグイン
 
 | 名前 | 内容 |
 |---|---|
 | `sepia` | 動画全体を一様にセピアカラーにする(`intensity` で効果の強さを調整) |
-| `analog-tv` | アナログ放送時代のテレビ風の画質(ぼかし・色にじみ・走査線・ざらつき)にし、時々ノイズ(砂嵐の帯・横ずれ・ちらつき)を入れる。`softness` `scanlines` `grain` `noise_rate` `noise_strength` で調整。例: `-p analog-tv:noise_rate=0.1` |
+| `analog-tv` | アナログ放送時代のテレビ風の画質(ぼかし・色にじみ・走査線・ざらつき)にし、時々ノイズ(砂嵐の帯・横ずれ・ちらつき)を入れる。`softness` `scanlines` `grain` `noise_rate` `noise_strength` で調整 |
 | `glitch` | デジタルグリッチ(RGBずれ・ブロックの位置ずれ・横ずれ)を時々入れる。`rate` `strength` `rgb_shift` `blocks` `slices` |
 | `lens-distortion` | 樽型/糸巻き型のレンズ歪みと色収差。`curvature`(-0.4〜1.0) `aberration` |
 | `old-film` | 古い映画フィルム風。`tint` `flicker` `jitter` `scratches` `dust` `grain` |
 
-## 自分でプラグインを作る
+同梱プラグインは `src/moviefilter/builtin_plugins/` にあります。
+
+## プラグインを追加する
+
+プラグインのファイルを、**自作用のフォルダ**に置いて、そのフォルダを MovieFilter に教えます。
+
+1. 自作用のフォルダを作る(例: `C:\MoviePlugins`)。プラグインのファイル(例: `brighten.py`)を置く。**ファイル名はプラグイン名と一致させる**(`-` は `_` に置換して比較)。
+2. 次のどちらかで、そのフォルダを教える。
+   - 設定ファイルに `[plugins]` の `extra_dirs = ["C:/MoviePlugins"]` と書く(設定ファイルの場所は [取扱説明書](docs/user_manual.md) の §8)。
+   - 環境変数 `MOVIEFILTER_PLUGIN_PATH` に設定する(複数は、Windows は `;`、Linux は `:` 区切り)。
+3. **GUI を起動し直す。** プラグインの一覧は、起動時に1回だけ読み込みます。
+
+同梱フォルダ(`src/moviefilter/builtin_plugins/`)に置いても使えますが、リポジトリの更新と混ざるため、お勧めしません。
+
+### 自分でプラグインを作る
 
 `templates/plugin_template.py` をコピーし、エフェクト処理の部分だけを書けばプラグインになります。
 
@@ -113,7 +125,26 @@ class MyEffectPlugin(VideoPlugin):
 
 設計・実装・テスト・配布に必要な情報は、すべて [プラグイン作成ガイド](docs/plugin_author_guide.md) にまとめています。
 
-## 制約事項(第1段階)
+## 補足: コマンドラインで使う
+
+GUI を使わずに、コマンドで同じ処理を行えます(スクリプトからの利用や、複数ファイルのまとめ処理に向いています)。
+
+```
+moviefilter list                                    # 使えるプラグインの一覧
+moviefilter info sepia                              # プラグインの詳細・パラメータ
+moviefilter apply holiday.mp4 -p sepia              # セピア調にして保存 → holiday_sepia.mp4
+moviefilter apply in.mp4 -p analog-tv -p glitch:rate=0.2 --quality high
+moviefilter gui                                     # GUI を起動
+```
+
+- 起動用スクリプトで使う場合は、`moviefilter` を `./moviefilter`(Windows の PowerShell は **`.\moviefilter.cmd`**。`.\` と `.cmd` が必要)に読み替えます。インストール(`pip install .`)すれば `moviefilter` とだけ打てます。
+- `-p` を繰り返すと、書いた順にプラグインを重ねがけします。`-p 名前:パラメータ=値,...` でパラメータを指定します。
+- 乱数を使うプラグインは、`--seed` で結果を固定できます。
+- `-o` で出力先を指定します(省略すると上記の既定名)。既存ファイルがあるとエラーになります(`--overwrite` で上書き)。
+
+オプションの一覧、書式、終了コード、まとめ処理の例は [取扱説明書](docs/user_manual.md) の §5 を参照してください。
+
+## 制約事項
 
 | 分類 | 内容 |
 |---|---|
@@ -124,42 +155,44 @@ class MyEffectPlugin(VideoPlugin):
 | ストリーム | 映像・音声とも先頭の1本のみ。字幕・チャプター・追加トラックは出力されない |
 | 音声 | 加工できない(元のまま引き継ぐ)。AAC などは無劣化でコピーし、MP4 に入らない形式は AAC に変換する |
 | プラグイン | 1フレームずつの処理のみ(前のフレームを覚える処理は可、未来のフレームの参照は不可)。解像度の変更は不可 |
-| 編集機能 | 一部区間だけの処理、複数ファイルの一括処理、プレビュー、GUI はない |
+| 編集機能 | 一部区間だけの処理、複数ファイルの一括処理、動画のプレビューはない |
 | 安全性 | プラグインは任意のプログラムとして実行される。**信頼できる入手元のプラグインだけを使うこと** |
 
 詳しくは [取扱説明書](docs/user_manual.md) の「制約事項」「エラー出力の説明」を参照してください。
 
 ## 技術構成
 
-- Python 3.11+、NumPy(必須の依存はこれのみ)
+- Python 3.11+、NumPy(必須の依存はこれのみ)。GUI は標準ライブラリの Tkinter
 - 動画の入出力は FFmpeg / FFprobe を外部コマンドとして利用(同梱しない)
-- 構成: UI 層(CLI)→ 処理サービス層 → プラグイン管理 / パイプライン / 動画 I/O 層 / 出力プロファイル
+- 構成: UI 層(GUI / CLI)→ 処理サービス層 → プラグイン管理 / パイプライン / 動画 I/O 層 / 出力プロファイル
 
 ## ドキュメント
 
 | 文書 | 内容 |
 |---|---|
+| [取扱説明書](docs/user_manual.md) | **まずこれを読んでください。** 準備・配置、GUI の使い方、CLI(補足)、制約事項、エラー、トラブルシューティング |
+| [プラグイン作成ガイド](docs/plugin_author_guide.md) | プラグインを作るために必要な情報のすべて |
+| [プラグインのひな形](templates/plugin_template.py) | エフェクト部分だけを書けば完成するひな形 |
 | [基本設計書](docs/basic_design.md) | 目的、要件、構成、将来拡張の方針 |
 | [詳細設計書](docs/detailed_design.md) | モジュール・API・FFmpeg 連携・エラー体系・テスト計画・セピアの設計 |
-| [取扱説明書](docs/user_manual.md) | 想定される使い方、制約事項、エラー出力、トラブルシューティング |
-| [プラグイン作成ガイド](docs/plugin_author_guide.md) | プラグインを作るために必要な情報のすべて |
+| [GUI 設計書](docs/gui_design.md) | GUI の画面・状態・スレッド・テストの設計 |
 | [設計レビュー記録](docs/review_log.md) | 第三者視点のレビューで見つかった指摘と対応 |
-| [プラグインのひな形](templates/plugin_template.py) | エフェクト部分だけを書けば完成するひな形 |
 
 ## 開発
 
 ```
 pip install -e ".[dev]"
-pytest                          # FFmpeg がない環境では結合テストは自動でスキップされる
+pytest                          # FFmpeg がない環境では結合テストは自動でスキップされる。表示環境がなければ GUI のスモークテストもスキップされる
 ```
 
 - 性能(1080p・30fps・10秒の動画、24 コア環境): プラグインなし 約 120fps、セピア 約 35fps。Python 側のメモリ使用量は約 100MB で一定。
-- 実装で見つかった設計の誤りと訂正は [設計レビュー記録](docs/review_log.md) の「第3回」を参照。
+- 実装で見つかった設計の誤りと訂正は [設計レビュー記録](docs/review_log.md) の「第3回」、CLI・GUI のレビューは「第4回」を参照。
 
 ## 今後の予定
 
 1. Windows での動作確認
-2. 将来拡張: 音声エフェクト、前後フレームを使うエフェクト、他の出力形式、GUI
+2. GUI の第2段階(2-B): 静止フレームのプレビュー、プリセット、設定ダイアログ、ドラッグ&ドロップ
+3. 将来拡張: 音声エフェクト、前後フレームを使うエフェクト、他の出力形式
 
 ## ライセンス
 

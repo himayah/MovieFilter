@@ -260,6 +260,14 @@ def _find_classes(module: ModuleType) -> list[type[Plugin]]:
 class PluginManager:
     def __init__(self, search_dirs: Sequence[Path]):
         self.search_dirs = [Path(d) for d in search_dirs]
+        # ロード済みのプラグイン情報。同じファイルを何度も import(実行)し直さないための
+        # キャッシュで、マネージャの寿命のあいだ有効。ファイルを書き換えた場合の再読込は clear_cache()。
+        # 失敗はキャッシュしない(直して再試行できるように)。
+        self._cache: dict[tuple[str, Path, bool], PluginInfo] = {}
+
+    def clear_cache(self) -> None:
+        """次回のロードでファイルを読み直す(GUI の「再読み込み」用)。"""
+        self._cache.clear()
 
     # ------------------------------------------------------------ 走査
     def _entries(self) -> list[tuple[str, Path, bool]]:
@@ -279,7 +287,14 @@ class PluginManager:
         return out
 
     def _load(self, stem: str, path: Path, is_package: bool) -> PluginInfo:
-        """1つのプラグインをロードして検証する。失敗時は _LoadFailure を送出する。"""
+        """1つのプラグインをロードして検証する(成功はキャッシュ)。失敗時は _LoadFailure を送出する。"""
+        key = (stem, path, is_package)
+        info = self._cache.get(key)
+        if info is None:
+            info = self._cache[key] = self._load_uncached(stem, path, is_package)
+        return info
+
+    def _load_uncached(self, stem: str, path: Path, is_package: bool) -> PluginInfo:
         try:
             module = _load_module(path, stem, is_package)
         except SyntaxError as e:

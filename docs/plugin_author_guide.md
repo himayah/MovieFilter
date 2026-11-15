@@ -4,9 +4,9 @@
 |---|---|
 | 対象読者 | MovieFilter 本体のソースを読まずに、フィルタプラグインだけを作る人 |
 | 対象 API | プラグイン API 1.0(`requires_api = (1, 0)`) |
-| 根拠文書 | `docs/detailed_design.md` v0.5(§3 公開API、§5.1 プラグイン管理) |
+| 根拠文書 | `docs/detailed_design.md` v0.8(§3 公開API、§5.1 プラグイン管理)、`docs/gui_design.md` §5(パラメータ入力欄の自動生成) |
 | 関連ファイル | ひな形: `templates/plugin_template.py` |
-| 注記 | 本書は実装前の設計に基づく。例外メッセージなどの文言は実装時に変わりうるが、エラーコード・API の契約は本書のとおり |
+| 注記 | 本書は実装済みの本体(v0.1.0)に対応する。例外メッセージなどの文言は今後変わりうるが、エラーコード・API の契約は本書のとおり。プラグインは CLI(`moviefilter`)からも GUI(`moviefilter gui`)からも、同じものがそのまま使える |
 
 このガイドだけで、プラグインの設計・実装・テスト・配布までできるように書いています。急ぐ場合は §1〜§2、§6〜§7 を読めば最初のプラグインを作れます。
 
@@ -93,6 +93,9 @@ sequenceDiagram
 
 同じ名前のプラグインが複数見つかった場合は、**先に見つかったものだけ**が使われ、後のものは警告とともに無視されます。
 
+- **GUI は、起動時に1回だけプラグインを読み込みます。** ファイルを置いたり書き換えたりしたら、GUI を起動し直してください(コマンドラインは実行のたびに読み込みます)。
+- 自作用のフォルダを別に作り、`MOVIEFILTER_PLUGIN_PATH` か `extra_dirs` で指定する方法をお勧めします(同梱フォルダ `src/moviefilter/builtin_plugins/` に置くと、本体の更新と混ざります)。
+
 ### 4.2 ファイル名の規則(重要)
 
 **ファイル名(拡張子を除く)= プラグイン名の `-` を `_` に置き換えたもの**でなければなりません。一致しないとロードされません。
@@ -174,7 +177,7 @@ ParamSpec(name, type, default, description="", min=None, max=None, choices=None)
 | `name` | パラメータ名。`[a-z][a-z0-9_]*`。クラス内で重複不可 |
 | `type` | `ParamType.INT / FLOAT / BOOL / STR / CHOICE` |
 | `default` | 既定値。**その型・範囲・選択肢に合っていること**(合わないとプラグインがロードされない) |
-| `description` | `moviefilter info` に表示される説明 |
+| `description` | `moviefilter info` と GUI のパラメータ欄に表示される説明 |
 | `min`, `max` | INT / FLOAT のみ。範囲外の指定はエラー(`E_PARAM_RANGE`)。`min <= max` |
 | `choices` | CHOICE のみ。文字列のタプル(1つ以上)。`default` はこの中の1つ |
 
@@ -185,14 +188,34 @@ ParamSpec(name, type, default, description="", min=None, max=None, choices=None)
 | `INT` | `amount=50` | `int` | 整数表記のみ(`1.5` はエラー)。範囲検証あり |
 | `FLOAT` | `strength=0.5` / `strength=1` | `float` | 整数表記も可。範囲検証あり |
 | `BOOL` | `invert=true` | `bool` | `true/false/1/0/yes/no`(大小無視) |
-| `STR` | `label=abc` | `str` | **値に `,` と `=` は使えない**(CLI の制約)。空文字は `label=` で指定 |
+| `STR` | `label=abc` | `str` | **CLI では値に `,` と `=` は使えない**(GUI では入力できるが、その設定は CLI コマンドとして表現できない)。空文字は `label=` で指定 |
 | `CHOICE` | `channel=red` | `str` | `choices` のいずれかと完全一致(大小区別) |
 
 - 指定されなかったパラメータは `default` で補完されます。**`params_values` には全パラメータのキーが必ず入っています**(`KeyError` を気にする必要はありません)。
 - 定義にないパラメータを利用者が指定すると、本体が `E_PARAM_UNKNOWN` でエラーにします(プラグイン側の処理は不要)。
 - 複数のパラメータにまたがる制約(例: `low < high`)は検証できないため、`__init__` で確認して `ValueError` を送出します(§6.1)。
 
-### 5.4 `params_values`
+### 5.4 GUI での見え方
+
+GUI のパラメータ入力欄は、`ParamSpec` から**自動で作られます**。プラグイン側に GUI 用のコードは要りません。定義の書き方で、入力部品が次のように決まります。
+
+| 定義 | GUI の入力部品 |
+|---|---|
+| `FLOAT` で `min` と `max` あり | スライダー + 数値入力 |
+| `FLOAT` で範囲なし | 数値入力 |
+| `INT` で `min` と `max` あり | 数値入力(増減ボタン付き) |
+| `INT` で範囲なし | 数値入力 |
+| `BOOL` | チェックボックス |
+| `CHOICE` | ドロップダウン(`choices` の順に表示) |
+| `STR` | テキスト入力 |
+
+- **`INT` / `FLOAT` には `min` / `max` を付けてください**(スライダーが使えて、範囲が説明に表示されます)。
+- `description` は、各項目の下に範囲とともに表示されます。利用者が見る文章として、短く具体的に書いてください。
+- 範囲外・型違いの入力は、GUI が `validate_params`(本体の検証と同じもの)で判定し、赤字で理由を表示します。実行は直るまでできません。
+- 「既定値に戻す」は `default` に戻します。既定値のままの項目は、GUI が表示する CLI コマンドから省略されます。
+- プラグインの一覧には `name`、`version`、`description` が表示されます。`description` は「一覧で意味の分かる1行」にしてください。
+
+### 5.5 `params_values`
 
 `self.params_values` は `dict[str, int|float|bool|str]` です。`__init__` の後ならどこからでも読めます。毎フレーム `self.params_values["x"]` と辞書を引くのは避け、`setup` で `self._x = ...` に取り出しておくと速く、読みやすくなります。
 
@@ -659,6 +682,8 @@ class FadeInPlugin(VideoPlugin):
 
 ### 18.1 `moviefilter list` の末尾に表示されるロード失敗
 
+GUI では、読み込みに失敗したプラグインがあると、プラグイン一覧の下に「読み込めなかったプラグインがあります」というボタンが出ます。押すと、`moviefilter list` の末尾と同じ内容(ファイルと理由)が表示されます。
+
 | 表示される原因(例) | 意味 | 対処 |
 |---|---|---|
 | `構文エラー (file.py:12)` | Python の構文エラー | 該当行を修正 |
@@ -687,10 +712,10 @@ class FadeInPlugin(VideoPlugin):
 
 ## 19. 公開前チェックリスト
 
-- [ ] ファイル名 = `name`(`-` を `_` に置換)で、`moviefilter list` に表示される
+- [ ] ファイル名 = `name`(`-` を `_` に置換)で、`moviefilter list` と GUI の一覧に表示される
 - [ ] `description` が一覧で意味の分かる1行になっている
 - [ ] `moviefilter info <name>` で、パラメータの型・既定値・範囲・説明が正しい
-- [ ] すべてのパラメータに `description` と(INT/FLOAT なら)`min`/`max` がある
+- [ ] すべてのパラメータに `description` と(INT/FLOAT なら)`min`/`max` がある(GUI でスライダーと範囲表示になる)
 - [ ] 既定値のまま実行して意図した効果になる
 - [ ] 入力 `frame` を書き換えていない・参照を保存していない
 - [ ] 戻り値は同じ shape の `uint8`、0〜255 に収まっている

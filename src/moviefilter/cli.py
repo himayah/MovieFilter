@@ -57,7 +57,7 @@ def _translate_argparse(msg: str) -> str:
     m = re.match(r"the following arguments are required: (.*)", msg)
     if m:
         if m.group(1) == "command":
-            return "サブコマンドを指定してください (list / info / apply / profiles)"
+            return "サブコマンドを指定してください (list / info / apply / profiles / gui)"
         return f"必須の引数がありません: {m.group(1)}"
     m = re.match(r"unrecognized arguments: (.*)", msg)
     if m:
@@ -111,7 +111,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("input", type=Path, help="入力動画ファイル")
     sp.add_argument("-p", "--plugin", action="append", required=True, metavar="SPEC",
                     help="適用するプラグイン(名前[:パラメータ=値,...])。複数指定可、指定順に適用")
-    sp.add_argument("-o", "--output", type=Path, help="出力ファイル(既定: <入力名>_filtered.mp4)")
+    sp.add_argument("-o", "--output", type=Path, help="出力ファイル(既定: <入力名>_<フィルタ名>.mp4)")
     sp.add_argument("--profile", help="出力プロファイル(既定: mp4-h264)")
     sp.add_argument("--quality", choices=QUALITIES, help="画質(既定: medium)")
     sp.add_argument("--no-audio", action="store_true", help="音声を出力しない")
@@ -120,6 +120,10 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("-q", "--quiet", action="store_true", help="進捗表示を出さない")
     common(sp)
     sp.set_defaults(func=cmd_apply)
+
+    sp = sub.add_parser("gui", help="GUI を起動")
+    common(sp)
+    sp.set_defaults(func=cmd_gui)
     return p
 
 
@@ -253,6 +257,11 @@ def cmd_apply(args) -> int:
             printer.finish()
     print(f"完了: {result.output_path} ({result.frames_processed} フレーム, {_hms(result.elapsed_sec)})")
     return 0
+
+
+def cmd_gui(args) -> int:
+    from .gui import main as gui_main  # tkinter が無い環境でも CLI を使えるよう、ここで初めて import
+    return gui_main(args.config, args.verbose)
 
 
 # ---------------------------------------------------------------- エントリポイント

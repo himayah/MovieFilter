@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 700" width="920" height="700" font-family="'Yu Gothic UI','Meiryo','Noto Sans CJK JP',sans-serif" font-size="13">
+  <title>MovieFilter メインウィンドウ ワイヤーフレーム</title>
+  <defs>
+    <style>
+      .win{fill:#fff;stroke:#5b6577;stroke-width:1.5}
+      .bar{fill:#e8edf5}
+      .sec{fill:#f6f8fb;stroke:#c5cedd}
+      .box{fill:#fff;stroke:#8d98ab}
+      .btn{fill:#eef2f9;stroke:#5b6fa8}
+      .prim{fill:#3b6fd4;stroke:#2a56ac}
+      .dis{fill:#e9ebef;stroke:#b4bac6}
+      .t{fill:#1f2733}
+      .h{fill:#1f2733;font-weight:bold}
+      .m{fill:#667085;font-size:12px}
+      .w{fill:#b45309;font-size:12px}
+      .wt{fill:#fff;font-weight:bold}
+      .num{fill:#3b6fd4;font-weight:bold;font-size:15px}
+      .ok{fill:#2e7d32}
+      .trk{fill:#d5dbe7}
+      .fill{fill:#3b6fd4}
+      .sel{fill:#dbe7fb;stroke:#3b6fd4}
+      .opt{fill:none;stroke:#8a5cd0;stroke-width:1.5;stroke-dasharray:6 4}
+      .optt{fill:#8a5cd0;font-size:12px}
+    </style>
+  </defs>
+  <rect class="win" x="10" y="10" width="900" height="680" rx="8"/>
+  <rect class="bar" x="11" y="11" width="898" height="30" rx="7"/>
+  <text class="h" x="24" y="31">MovieFilter</text>
+  <text class="m" x="440" y="31">2-B: ④の右または下にプレビューペインを追加</text>
+  <text class="m" x="760" y="31">ファイル(F)   ツール(T)   ヘルプ(H)</text>
+
+  <!-- 1 input -->
+  <rect class="sec" x="24" y="54" width="872" height="86" rx="6"/>
+  <text class="num" x="34" y="76">①</text><text class="h" x="56" y="76">入力動画</text>
+  <rect class="box" x="40" y="86" width="700" height="26" rx="3"/>
+  <text class="t" x="50" y="104">C:\videos\in.mp4</text>
+  <rect class="btn" x="752" y="86" width="130" height="26" rx="4"/><text class="t" x="790" y="104">参照...</text>
+  <text class="m" x="40" y="128">1920x1080 / 29.97fps / 00:01:23 (2490フレーム) / 音声: aac 2ch</text>
+  <text class="w" x="520" y="128">⚠ 可変フレームレート → 固定に変換されます</text>
+
+  <!-- 2 plugin list -->
+  <rect class="sec" x="24" y="150" width="300" height="250" rx="6"/>
+  <text class="num" x="34" y="172">②</text><text class="h" x="56" y="172">利用可能なプラグイン</text>
+  <rect class="box" x="40" y="182" width="268" height="24" rx="3"/><text class="m" x="50" y="199">検索...</text>
+  <rect class="box" x="40" y="212" width="268" height="120" rx="3"/>
+  <text class="t" x="52" y="232">analog-tv</text>
+  <rect class="sel" x="41" y="240" width="266" height="22"/><text class="t" x="52" y="256">glitch</text>
+  <text class="t" x="52" y="278">lens-distortion</text>
+  <text class="t" x="52" y="298">old-film</text>
+  <text class="t" x="52" y="318">sepia</text>
+  <text class="m" x="40" y="352">説明: ランダムな映像の乱れを加える</text>
+  <rect class="btn" x="40" y="362" width="268" height="26" rx="4"/><text class="t" x="96" y="380">適用リストに追加  →</text>
+
+  <!-- 3 chain -->
+  <rect class="sec" x="336" y="150" width="560" height="250" rx="6"/>
+  <text class="num" x="346" y="172">③</text><text class="h" x="368" y="172">適用リスト(上から順に適用)</text>
+  <rect class="box" x="352" y="182" width="528" height="26" rx="3"/>
+  <text class="t" x="362" y="200">1. sepia</text>
+  <text class="ok" x="806" y="200">✓</text>
+  <rect class="sel" x="352" y="212" width="528" height="26" rx="3"/>
+  <text class="t" x="362" y="230">2. glitch</text>
+  <text class="ok" x="806" y="230">✓</text>
+  <g class="t"><text x="826" y="200" class="m">↑ ↓ ×</text><text x="826" y="230" class="m">↑ ↓ ×</text></g>
+
+  <!-- 4 params -->
+  <rect class="box" x="352" y="248" width="528" height="140" rx="4"/>
+  <text class="num" x="360" y="268">④</text><text class="h" x="382" y="268">パラメータ: glitch</text>
+  <text class="t" x="372" y="292">rate</text>
+  <rect class="trk" x="440" y="285" width="260" height="6" rx="3"/><rect class="fill" x="440" y="285" width="26" height="6" rx="3"/><circle cx="466" cy="288" r="8" fill="#fff" stroke="#3b6fd4" stroke-width="2"/>
+  <rect class="box" x="720" y="276" width="60" height="24" rx="3"/><text class="t" x="738" y="293">0.10</text>
+  <text class="t" x="372" y="320">strength</text>
+  <rect class="trk" x="440" y="313" width="260" height="6" rx="3"/><rect class="fill" x="440" y="313" width="130" height="6" rx="3"/><circle cx="570" cy="316" r="8" fill="#fff" stroke="#3b6fd4" stroke-width="2"/>
+  <rect class="box" x="720" y="304" width="60" height="24" rx="3"/><text class="t" x="738" y="321">0.50</text>
+  <text class="t" x="372" y="348">☑ rgb_shift      ☑ blocks      ☑ slices</text>
+  <text class="m" x="372" y="372">グリッチが発生するフレームの割合 (0.0〜1.0)</text>
+  <rect class="btn" x="780" y="356" width="90" height="24" rx="4"/><text class="t" x="790" y="373">既定値に戻す</text>
+
+  <!-- 5 output -->
+  <rect class="sec" x="24" y="410" width="872" height="106" rx="6"/>
+  <text class="num" x="34" y="432">⑤</text><text class="h" x="56" y="432">出力</text>
+  <text class="t" x="40" y="458">出力先</text>
+  <rect class="box" x="90" y="442" width="650" height="26" rx="3"/><text class="t" x="100" y="460">C:\videos\in_sepia_glitch.mp4</text>
+  <rect class="btn" x="752" y="442" width="130" height="26" rx="4"/><text class="t" x="790" y="460">参照...</text>
+  <text class="t" x="40" y="490">形式</text>
+  <rect class="box" x="76" y="474" width="110" height="24" rx="3"/><text class="t" x="86" y="491">mp4-h264 ▼</text>
+  <text class="t" x="204" y="490">画質  ◉中  ○低  ○高</text>
+  <text class="t" x="364" y="490">☑ 音声を残す</text>
+  <text class="t" x="468" y="490">シード</text>
+  <rect class="box" x="512" y="474" width="50" height="24" rx="3"/><text class="t" x="526" y="491">0</text>
+  <text class="t" x="584" y="490">☐ 既存ファイルを上書き</text>
+  <rect class="btn" x="742" y="474" width="140" height="24" rx="4"/><text class="t" x="752" y="491">CLIコマンドを表示...</text>
+
+  <!-- 6 run -->
+  <rect class="sec" x="24" y="526" width="872" height="76" rx="6"/>
+  <text class="num" x="34" y="548">⑥</text><text class="h" x="56" y="548">実行</text>
+  <rect class="prim" x="40" y="558" width="90" height="30" rx="4"/><text class="wt" x="68" y="578">実行</text>
+  <rect class="dis" x="140" y="558" width="90" height="30" rx="4"/><text class="m" x="168" y="578">中止</text>
+  <rect class="trk" x="250" y="565" width="440" height="16" rx="8"/><rect class="fill" x="250" y="565" width="229" height="16" rx="8"/>
+  <text class="t" x="702" y="578">52%  1295/2490  残り約0:42</text>
+  <text class="m" x="250" y="598">状態: 処理中…</text>
+
+  <!-- 7 log -->
+  <rect class="sec" x="24" y="612" width="872" height="64" rx="6"/>
+  <text class="num" x="34" y="634">⑦</text><text class="h" x="56" y="634">ログ(折りたたみ可)</text>
+  <text class="m" x="40" y="658">12:03:41 入力: 1920x1080 30000/1001 fps 2490 フレーム, 音声: copy, 適用順: sepia → glitch</text>
+
+</svg>

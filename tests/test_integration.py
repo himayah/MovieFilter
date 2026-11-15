@@ -46,10 +46,14 @@ def test_default_output_name(videos, tmp_path):
     shutil.copy(videos["silent"], src)
     code, stdout, stderr = run_cli("apply", src, "-p", "sepia", "-q")
     assert code == 0, stderr
-    assert (tmp_path / "holiday_filtered.mp4").is_file()
+    assert (tmp_path / "holiday_sepia.mp4").is_file()
     code, _, stderr = run_cli("apply", src, "-p", "sepia", "-q")
     assert code == 2 and "E_OUTPUT_EXISTS" in stderr
     assert run_cli("apply", src, "-p", "sepia", "-q", "--overwrite")[0] == 0
+    # 複数のフィルタは適用順に連結される
+    code, _, stderr = run_cli("apply", src, "-p", "sepia", "-p", "glitch", "-q")
+    assert code == 0, stderr
+    assert (tmp_path / "holiday_sepia_glitch.mp4").is_file()
 
 
 def test_ntsc_rate_and_sync_and_metadata(videos, tmp_path):
